@@ -1,0 +1,54 @@
+#!/bin/bash
+
+d_get_help()
+{
+    usage="Usage $0 [-p project_dir] [-b php_binary]"
+    echo ${usage}
+}
+
+PHP_BIN=$(cd "$(dirname "$0")"; pwd)"/binary/php/7.0/php-7.0.8"
+
+OPTIND=1
+if (($# == 0)); then
+    d_get_help
+    exit 2
+fi
+
+while getopts ":hp:b:" opt; do
+    case $opt in
+        p )
+            SOURCE_ROOT=$OPTARG;;
+        b )
+            PHP_BIN=$OPTARG;;
+        h )
+            d_get_help
+            exit 0;;
+        : )
+            echo ">>> Error: '-$OPTARG' requires an argument"
+            exit 1;;
+        ? )
+            echo ">>> Error: '-$OPTARG' not supported"
+            d_get_help
+            exit 1;;
+    esac
+
+done
+shift $(($OPTIND - 1))
+
+if [[ ! -f $PHP_BIN ]]
+then
+    echo "php binary is required"
+    exit 1
+fi
+
+if [[ ! -d $SOURCE_ROOT ]]
+then
+    echo "source dir [$SOURCE_ROOT] is not exists"
+    exit 1
+fi
+
+
+for file in $(find ${SOURCE_ROOT} -type f -iname '*.php'); do
+    ${PHP_BIN} -d error_reporting=E_ALL -l $file | grep -v 'No syntax errors detected'
+    awk '{if( $0 ~ /\$[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]+(->\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]+)*)\[/){print "left-to-right imcompatible in file "FILENAME", on line "NR " "$0}}' $file
+done
